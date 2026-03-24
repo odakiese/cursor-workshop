@@ -54,11 +54,14 @@ jobs:
             queries are most relevant — for example: errors, exceptions, failed requests,
             warnings, slow operations, or any anomalies over the last 7 days.
 
-            First, discover what tables have data:
-            az monitor log-analytics query \
-              --workspace a53c2ee0-9900-4756-b9c1-ab1b96a28d87 \
-              --analytics-query "union withsource=TableName * | where TimeGenerated > ago(7d) | summarize count() by TableName | order by count_ desc" \
-              --output json
+            Known tables with data (last 7 days):
+            - ContainerAppConsoleLogs_CL (~4.8M rows) — container stdout/stderr logs
+            - AppTraces (~781K rows) — application traces
+            - AppRequests (~158K rows) — HTTP requests
+            - AppExceptions (~1966 rows) — exceptions
+            - ContainerAppSystemLogs_CL (~6.8K rows) — container system events
+
+            Start by querying the most relevant tables for problems.
 
             Then run targeted KQL queries on relevant tables using:
             az monitor log-analytics query \
