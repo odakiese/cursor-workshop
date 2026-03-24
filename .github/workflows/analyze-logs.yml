@@ -36,7 +36,7 @@ jobs:
           az monitor app-insights query \
             --app ai-snkm-p \
             --resource-group rg-snkm-shared-p \
-            --analytics-query "exceptions | where timestamp > ago(24h) | summarize count() by type, outerMessage, cloud_RoleName | order by count_ desc | limit 50" \
+            --analytics-query "exceptions | where timestamp > ago(7d) | summarize count() by type, outerMessage, cloud_RoleName | order by count_ desc | limit 50" \
             --output json >> /tmp/logs/appinsights.log 2>&1 || true
 
           echo "" >> /tmp/logs/appinsights.log
@@ -44,7 +44,7 @@ jobs:
           az monitor app-insights query \
             --app ai-snkm-p \
             --resource-group rg-snkm-shared-p \
-            --analytics-query "requests | where timestamp > ago(24h) and success == false | summarize count() by name, resultCode, cloud_RoleName | order by count_ desc | limit 50" \
+            --analytics-query "requests | where timestamp > ago(7d) and success == false | summarize count() by name, resultCode, cloud_RoleName | order by count_ desc | limit 50" \
             --output json >> /tmp/logs/appinsights.log 2>&1 || true
 
           echo "" >> /tmp/logs/appinsights.log
@@ -52,7 +52,15 @@ jobs:
           az monitor app-insights query \
             --app ai-snkm-p \
             --resource-group rg-snkm-shared-p \
-            --analytics-query "traces | where timestamp > ago(24h) and severityLevel >= 3 | summarize count() by message, cloud_RoleName | order by count_ desc | limit 50" \
+            --analytics-query "traces | where timestamp > ago(7d) and severityLevel >= 3 | summarize count() by message, cloud_RoleName | order by count_ desc | limit 50" \
+            --output json >> /tmp/logs/appinsights.log 2>&1 || true
+
+          echo "" >> /tmp/logs/appinsights.log
+          echo "=== Any data at all (last 7d) ===" >> /tmp/logs/appinsights.log
+          az monitor app-insights query \
+            --app ai-snkm-p \
+            --resource-group rg-snkm-shared-p \
+            --analytics-query "union requests, exceptions, traces, dependencies | where timestamp > ago(7d) | summarize count() by itemType" \
             --output json >> /tmp/logs/appinsights.log 2>&1 || true
 
           cat /tmp/logs/appinsights.log
