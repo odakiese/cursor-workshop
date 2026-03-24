@@ -28,43 +28,6 @@ jobs:
             --tenant "${{ secrets.AZURE_TENANT_ID }}"
           az account set --subscription "${{ secrets.AZURE_SUBSCRIPTION_ID }}"
 
-      - name: Query Application Insights
-        run: |
-          mkdir -p /tmp/logs
-
-          echo "=== Application Insights: Exceptions (last 24h) ===" > /tmp/logs/appinsights.log
-          az monitor app-insights query \
-            --app ai-snkm-p \
-            --resource-group rg-snkm-shared-p \
-            --analytics-query "exceptions | where timestamp > ago(7d) | summarize count() by type, outerMessage, cloud_RoleName | order by count_ desc | limit 50" \
-            --output json >> /tmp/logs/appinsights.log 2>&1 || true
-
-          echo "" >> /tmp/logs/appinsights.log
-          echo "=== Application Insights: Failed Requests (last 24h) ===" >> /tmp/logs/appinsights.log
-          az monitor app-insights query \
-            --app ai-snkm-p \
-            --resource-group rg-snkm-shared-p \
-            --analytics-query "requests | where timestamp > ago(7d) and success == false | summarize count() by name, resultCode, cloud_RoleName | order by count_ desc | limit 50" \
-            --output json >> /tmp/logs/appinsights.log 2>&1 || true
-
-          echo "" >> /tmp/logs/appinsights.log
-          echo "=== Application Insights: Critical Traces (last 24h) ===" >> /tmp/logs/appinsights.log
-          az monitor app-insights query \
-            --app ai-snkm-p \
-            --resource-group rg-snkm-shared-p \
-            --analytics-query "traces | where timestamp > ago(7d) and severityLevel >= 3 | summarize count() by message, cloud_RoleName | order by count_ desc | limit 50" \
-            --output json >> /tmp/logs/appinsights.log 2>&1 || true
-
-          echo "" >> /tmp/logs/appinsights.log
-          echo "=== Any data at all (last 7d) ===" >> /tmp/logs/appinsights.log
-          az monitor app-insights query \
-            --app ai-snkm-p \
-            --resource-group rg-snkm-shared-p \
-            --analytics-query "union requests, exceptions, traces, dependencies | where timestamp > ago(7d) | summarize count() by itemType" \
-            --output json >> /tmp/logs/appinsights.log 2>&1 || true
-
-          cat /tmp/logs/appinsights.log
-
       - name: Analyze logs with Claude and create issues
         uses: anthropics/claude-code-action@v1
         env:
@@ -79,26 +42,34 @@ jobs:
           claude_args: "--model claude-sonnet-4-6"
           show_full_output: "true"
           prompt: |
-            You are a log analysis assistant. Analyze Application Insights telemetry and create GitHub issues for any real problems found.
+            You are a log analysis assistant with access to Azure CLI and GitHub CLI.
 
-            Read the log file at /tmp/logs/appinsights.log.
+            The Application Insights resource is:
+            - App: ai-snkm-p
+            - Resource group: rg-snkm-shared-p
 
-            It contains three sections:
-            - Exceptions: unhandled errors grouped by type and message
-            - Failed Requests: HTTP failures grouped by endpoint and status code
-            - Critical Traces: severity level 3+ log entries
+            You are already logged in to Azure. Use the az CLI to query Application Insights
+            and investigate the health of the application. Decide yourself what queries are
+            most relevant — for example: exceptions, failed requests, slow dependencies,
+            critical traces, availability results, or any anomalies over the last 7 days.
 
-            For each distinct problem or pattern you find:
-            1. Check for existing issues: gh issue list --repo ${{ github.repository }} --state open --label "log-analysis"
+            Use this command pattern to run KQL queries:
+            az monitor app-insights query \
+              --app ai-snkm-p \
+              --resource-group rg-snkm-shared-p \
+              --analytics-query "<your KQL query>" \
+              --output json
+
+            After investigating, for each distinct problem you find:
+            1. Check for duplicates: gh issue list --repo ${{ github.repository }} --state open --label "log-analysis"
             2. If no duplicate exists, create a GitHub issue:
                gh issue create \
                  --repo ${{ github.repository }} \
                  --label "log-analysis" \
                  --title "<concise title>" \
-                 --body "<description with: what was found, affected service/role, error details, count/frequency, and suggested fix>"
+                 --body "<description with: what was found, affected service, error details, frequency, and suggested fix>"
 
             Rules:
-            - Only create issues for real problems (errors, exceptions, failed requests)
+            - Only create issues for real problems
             - Group related failures into one issue
-            - Skip if the query returned no data or only empty results
-            - If nothing notable found, output "No issues found — logs look healthy."
+            - If nothing notable found, say "No issues found — logs look healthy."
