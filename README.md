@@ -1,6 +1,6 @@
 # Cursor Workshop
 
-A starter project for learning AI-assisted development with Cursor.
+A starter project for learning AI-assisted development with Cursor and Claude.
 
 ## Project Structure
 
