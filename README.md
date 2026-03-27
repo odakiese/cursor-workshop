@@ -41,4 +41,5 @@ npm run dev:backend     # Backend only
 - `GET /api/posts` - List blog posts
 - `GET /api/posts/:slug` - Get single post
 - `GET /api/tags` - Get all tags
+- `GET /api/posts/:slug/related` - Get related posts by shared tags
 - `GET /api/health` - Health check

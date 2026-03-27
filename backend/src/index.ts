@@ -49,6 +49,33 @@ app.get("/api/tags", (req, res) => {
   res.json(uniqueTags);
 });
 
+// Get related posts by slug (based on shared tags)
+app.get("/api/posts/:slug/related", (req, res) => {
+  const post = posts.find((p) => p.slug === req.params.slug);
+
+  if (!post) {
+    return res.status(404).json({ error: "Post not found" });
+  }
+
+  const limit = req.query.limit ? parseInt(req.query.limit as string) : 3;
+
+  const related = posts
+    .filter((p) => p.slug !== post.slug)
+    .map((p) => ({
+      post: p,
+      score: p.tags.filter((t) => post.tags.includes(t)).length,
+    }))
+    .filter(({ score }) => score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit)
+    .map(({ post: p }) => {
+      const { content, ...postWithoutContent } = p;
+      return postWithoutContent;
+    });
+
+  res.json(related);
+});
+
 // Health check
 app.get("/api/health", (req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });
